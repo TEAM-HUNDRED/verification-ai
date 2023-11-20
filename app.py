@@ -9,6 +9,10 @@ client = OpenAI(
   api_key = "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"
 )
 
+@app.route('/')
+def home():
+   return 'EC2 Flask Test'
+
 @app.errorhandler(400)
 def bad_request(error):
     return jsonify({'message': 'Bad Request'}), 400
