@@ -1,9 +1,12 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from openai import OpenAI
 from http import HTTPStatus
+from image_ocr import clova_ocr
 
 # Flask 애플리케이션 초기화
 app = Flask(__name__)
+CORS(app)
 
 client = OpenAI(
   api_key = "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"
@@ -23,20 +26,14 @@ def not_found(error):
 
 # 이미지 캡셔닝 API 엔드포인트 정의
 @app.route('/image-captioning', methods=['POST'])
-def image_captioning():
+def verification_image_captioning():
     # 요청으로부터 이미지 URL 받기
-    print("api  호출")
+    print("IMAGE CAPTIONING api  호출")
     params = request.get_json()
     image_url = params['image']
-    text = "사진을 분석하고 다음 항목을 만족하는지 O, X를 통해 판단해줘.\n" \
-           "답변은 O, X만 공백으로 구분해서 반환해줘.\n" \
-           "1. 컵이나 텀블러처럼 음료를 담을 수 있는 물체가 존재하는가?\n" \
-           "2. 음료를 담을 수 있는 물체의 내부에 음료와 같은 액체가 있거나, 음료를 타먹을 수 있는 가루나 시럽 같은 것이 담겨 있는가?\n" \
-           "3. 음료를 만들어 먹을 수 있는 스틱, 티백, 차 주머니 등이 있는가?\n" \
-           "4. 음료를 만들어 먹을 수 있는 스틱, 티백, 차 주머니 등이 개봉되거나 사용되어 있는 상태인가?\n" \
-           "5. 커피머신을 이용해 커피를 내려먹고 있는가?"
+    prompt = params['prompt']
 
-    print(text)
+    print(prompt)
     # OpenAI에 요청 보내기
     response = client.chat.completions.create(
         model="gpt-4-vision-preview",
@@ -44,7 +41,7 @@ def image_captioning():
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": text},
+                    {"type": "text", "text": prompt},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -59,10 +56,42 @@ def image_captioning():
     )
     # 응답 반환
     message = response.choices[0].message.content.split(' ')
-    print(pass_or_fail(message))
-    return jsonify({"status": HTTPStatus.OK, "data": pass_or_fail(message)})
+    print(message)
+    print(pass_or_fail_coffee(message))
+    return jsonify({"status": HTTPStatus.OK, "data": pass_or_fail_coffee(message)})
 
-def pass_or_fail(result):
+# OCR 결과 분 API 엔드포인트 정의
+@app.route('/ocr', methods=['POST'])
+def verification_ocr():
+    # 요청으로부터 이미지 URL 받기
+    print("OCR api  호출")
+    params = request.get_json()
+    image_url = params['image']
+
+    ocr_result = clova_ocr(image_url) # 이미지 기반 OCR 진행
+    prompt = ocr_result + '\n' + params['prompt']
+    print(prompt)
+
+    # OpenAI에 요청 보내기
+    response = client.chat.completions.create(
+        model="gpt-4-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+        max_tokens=300,
+    )
+    # 응답 반환
+    message = response.choices[0].message.content.split(' ')
+    print(message)
+    print(pass_or_fail_consumption(message))
+    return jsonify({"status": HTTPStatus.OK, "data": pass_or_fail_consumption(message)})
+
+def pass_or_fail_coffee(result): # 음료값 절약 챌린지
     # 조건 확인: index 0, 1, 2, 3가 O이거나 index 0, 1, 4가 O인 경우
     if (result[0] == "O" and result[1] == "O" and result[2] == "O" and result[3] == "O") or \
        (result[0] == "O" and result[1] == "O" and result[4] == "O"):
@@ -70,6 +99,13 @@ def pass_or_fail(result):
     else:
         return False
 
+def pass_or_fail_consumption(result): # 음료값 절약 챌린지
+    if (result[0] == "O" and result[1] == "O") or \
+       (result[0] == "O" and result[3] == "O"):
+        return True
+    else:
+        return False
+
 # 애플리케이션 실행
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", debug=True)
+    app.run(host="0.0.0.0", port="5001", debug=True)
