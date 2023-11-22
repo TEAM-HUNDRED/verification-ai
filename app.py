@@ -33,7 +33,6 @@ def verification_image_captioning():
     image_url = params['image']
     prompt = params['prompt']
 
-    print(prompt)
     # OpenAI에 요청 보내기
     response = client.chat.completions.create(
         model="gpt-4-vision-preview",
@@ -69,8 +68,8 @@ def verification_ocr():
     image_url = params['image']
 
     ocr_result = clova_ocr(image_url) # 이미지 기반 OCR 진행
+    print(ocr_result)
     prompt = ocr_result + '\n' + params['prompt']
-    print(prompt)
 
     # OpenAI에 요청 보내기
     response = client.chat.completions.create(
