@@ -108,4 +108,4 @@ def pass_or_fail_consumption(result): # 음료값 절약 챌린지
 
 # 애플리케이션 실행
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port="5001", debug=True)
+    app.run(host="0.0.0.0", port="5000", debug=True)
